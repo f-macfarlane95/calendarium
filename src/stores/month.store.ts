@@ -1,5 +1,5 @@
-import { type StaticStore } from "./calendar.store";
-import { YearStore } from "./years.store";
+import type { StaticStore } from "./calendar.store";
+import type { YearStore } from "./years.store";
 import { type Readable, derived, get } from "svelte/store";
 import { nanoid, wrap } from "../utils/functions";
 import type {
@@ -134,6 +134,7 @@ export class MonthStore {
             let weekArray: (DayOrLeapDay | null)[][] = [];
             let daysAdded = 0;
             let intercals = 0;
+            const insertedIntercalaryDays = new Set<string>();
             while (daysAdded < days) {
                 //Initialize the day array.
                 //The first week of the month should include negative numbers for the prior month.
@@ -171,10 +172,55 @@ export class MonthStore {
                 while (dayArray.length < weekdays.length) {
                     daysAdded++;
 
+                    const intercalaryDays = leapDays.filter(
+                        (leapday) =>
+                            leapday.intercalary &&
+                            leapday.after != null &&
+                            leapday.after == daysAdded - intercals - 1 &&
+                            !insertedIntercalaryDays.has(leapday.id)
+                    );
+
+                    if (intercalaryDays.length) {
+                        const precedingDays = dayArray.length;
+                        if (precedingDays) weekArray.push(dayArray);
+
+                        for (const [
+                            index,
+                            leapday,
+                        ] of intercalaryDays.entries()) {
+                            if (index) daysAdded++;
+                            insertedIntercalaryDays.add(leapday.id);
+                            intercals++;
+                            weekArray.push([{ ...leapday, number: daysAdded }]);
+
+                            const endingEra = eras.find(
+                                (era) =>
+                                    era.endsYear &&
+                                    era.date.year === this.year.year &&
+                                    era.date.month === get(this.index)
+                            );
+                            if (endingEra && endingEra.date.day === daysAdded) {
+                                return weekArray;
+                            }
+                        }
+
+                        if (daysAdded === days) {
+                            dayArray = [];
+                            break;
+                        }
+                        dayArray =
+                            precedingDays < weekdays.length
+                                ? Array(precedingDays).fill(null)
+                                : [];
+                        continue;
+                    }
+
                     // Check if this should be a leap day instead of a "regular" day.
                     const leapday = leapDays.find(
                         (leapday) =>
-                            leapday.after && leapday.after == daysAdded - 1
+                            !leapday.intercalary &&
+                            leapday.after &&
+                            leapday.after == daysAdded - 1
                     );
 
                     if (leapday) {
@@ -182,39 +228,7 @@ export class MonthStore {
                             ...leapday,
                             number: daysAdded,
                         };
-                        if (!leapday.intercalary) {
-                            dayArray.push(definedLeapDay);
-                        } else {
-                            for (let i = 0; i < intercals; i++) {
-                                if (dayArray.length == weekdays.length) {
-                                    weekArray.push(dayArray);
-                                    dayArray = [];
-                                }
-                                dayArray.push({
-                                    type: "day",
-                                    number: daysAdded,
-                                    name: null,
-                                    id: nanoid(3),
-                                });
-                                daysAdded++;
-                                definedLeapDay.number++;
-                            }
-                            intercals++;
-                            if (dayArray.length) {
-                                weekArray.push(dayArray);
-                            }
-                            weekArray.push([definedLeapDay]);
-                            if (
-                                dayArray.length > 0 &&
-                                dayArray.length < weekdays.length
-                            ) {
-                                weekArray.push(
-                                    [...Array(dayArray.length)].map((k) => null)
-                                );
-                            }
-                            dayArray = [];
-                            if (daysAdded === days) break;
-                        }
+                        dayArray.push(definedLeapDay);
                     } else {
                         dayArray.push({
                             type: "day",
@@ -242,7 +256,7 @@ export class MonthStore {
                         return weekArray;
                     }
                 }
-                weekArray.push(dayArray);
+                if (dayArray.length) weekArray.push(dayArray);
             }
 
             return weekArray;

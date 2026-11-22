@@ -105,7 +105,7 @@
     <ToggleComponent
         name="Intercalary"
         value={leapDay.intercalary}
-        desc="Intercalary days interrupt the normal flow of the month."
+        desc="Intercalary days interrupt the normal flow of the month. Days with the same After value appear consecutively in their configured order."
         on:click={(evt) => (leapDay.intercalary = !leapDay.intercalary)}
     />
 
