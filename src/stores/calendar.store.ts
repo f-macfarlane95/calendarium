@@ -402,7 +402,11 @@ export function getEphemeralStore(
                         let weekIndex = weekArray.findIndex((w) =>
                             w.find((d) => d && d.number == displaying.day)
                         );
-                        if (weekIndex < 1) {
+                        if (
+                            !weekArray.slice(0, weekIndex).some((week) =>
+                                week.some((d) => d && d.number > 0)
+                            )
+                        ) {
                             next = decrementMonth(
                                 next,
                                 yearCalculator,
@@ -414,8 +418,11 @@ export function getEphemeralStore(
                             weekIndex = weekArray.length;
                             let monthLength = get(month.days);
                             while (
-                                !weekArray[weekIndex - 1].every(
-                                    (d) => d && d.number <= monthLength
+                                !weekArray[weekIndex - 1].some(
+                                    (d) =>
+                                        d &&
+                                        d.number > 0 &&
+                                        d.number <= monthLength
                                 )
                             ) {
                                 weekIndex--;
@@ -435,7 +442,12 @@ export function getEphemeralStore(
                                 }
                             }
                         }
-                        next.day = weekArray[weekIndex - 1][0]!.number;
+                        next.day = weekArray[weekIndex - 1].find(
+                            (d) =>
+                                d &&
+                                d.number > 0 &&
+                                d.number <= get(month.days)
+                        )!.number;
 
                         return next;
                     }
@@ -508,13 +520,21 @@ export function getEphemeralStore(
                             weekArray = get(month.daysAsWeeks);
                             weekIndex =
                                 weekArray.findIndex((w) =>
-                                    w.every((d) => d && d.number > 0)
+                                    w.some(
+                                        (d) =>
+                                            d &&
+                                            d.number > 0 &&
+                                            d.number <= get(month.days)
+                                    )
                                 ) - 1;
                             monthLength = get(month.days);
 
                             while (
-                                weekArray[weekIndex + 1].some(
-                                    (d) => d && d.number > monthLength
+                                !weekArray[weekIndex + 1].some(
+                                    (d) =>
+                                        d &&
+                                        d.number > 0 &&
+                                        d.number <= monthLength
                                 )
                             ) {
                                 weekIndex++;
@@ -534,7 +554,9 @@ export function getEphemeralStore(
                                 }
                             }
                         }
-                        next.day = weekArray[weekIndex + 1][0]!.number;
+                        next.day = weekArray[weekIndex + 1].find(
+                            (d) => d && d.number > 0 && d.number <= monthLength
+                        )!.number;
                         return next;
                     }
                     case ViewState.Month:
